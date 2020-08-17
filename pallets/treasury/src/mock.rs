@@ -1,3 +1,5 @@
+// This file is part of Interlay Ltd's BTC-Parachain.
+
 /// Mocking the test environment
 use crate::{Module, Trait};
 use frame_support::{

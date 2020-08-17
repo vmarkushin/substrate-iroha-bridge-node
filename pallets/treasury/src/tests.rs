@@ -1,3 +1,5 @@
+// This file is part of Interlay Ltd's BTC-Parachain.
+
 /// Tests for Treasury
 use crate::mock::*;
 use crate::RawEvent;
