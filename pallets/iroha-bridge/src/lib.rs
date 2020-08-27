@@ -2,6 +2,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[macro_use]
+extern crate alloc;
+
 #[cfg(test)]
 mod tests;
 
@@ -10,7 +13,7 @@ pub mod mock;
 
 #[macro_use]
 mod utils;
-
+// use core::alloc::format;
 use core::{line, stringify};
 use frame_support::dispatch::Weight;
 use frame_support::{
@@ -38,11 +41,11 @@ use sp_runtime::{
     offchain as rt_offchain, offchain::storage::StorageValueRef,
     transaction_validity::TransactionPriority,
 };
-use sp_std::convert::TryFrom;
+use sp_std::convert::{TryFrom};
 use sp_std::prelude::*;
 use sp_std::str;
 use treasury::AssetKind;
-use parity_scale_codec::alloc::collections::HashSet;
+use alloc::string::String;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"demo");
 pub const KEY_TYPE_2: KeyTypeId = KeyTypeId(*b"dem0");
@@ -234,7 +237,7 @@ decl_module! {
             };
 
             // acquire lock for the current block
-            let s_key = format!("iroha-bridge-ocw::lock-{}", block_num);
+            let s_key = format!("iroha-bridge-ocw::lock-{}", block_num); // TODO: find ouy why it's not working
             let s_lock = StorageValueRef::persistent(s_key.as_bytes());
             let res: Result<Result<bool, bool>, Error<T>> =
                 s_lock.mutate(|s: Option<Option<bool>>| match s {
@@ -395,7 +398,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn fetch_blocks(from_height: u64) -> Result<Vec<ValidBlock>, Error<T>> {
-        let null_pk = iroha_crypto::PublicKey::try_from(vec![0u8; 32]).unwrap();
+        let null_pk = iroha_crypto::PublicKey::default(); //vec![0u8; 32]).unwrap();
         let get_blocks = BlockMessage::GetBlocksFromHeight(from_height, PeerId::new("", &null_pk));
         let msg = Self::http_request::<_, BlockMessage>(BLOCK_ENDPOINT, &get_blocks)?;
         let blocks = match msg {
@@ -405,7 +408,7 @@ impl<T: Trait> Module<T> {
                 return Err(<Error<T>>::Other);
             }
         };
-        let mut expected_peers: HashSet<iroha_crypto::PublicKey> = IrohaPeers::get().iter().cloned().collect();
+        let mut expected_peers: Vec<iroha_crypto::PublicKey> = IrohaPeers::get().clone();
         debug::debug!("expected_peers: {:?}", expected_peers);
         for block in blocks.clone() {
             for (iroha_pk, (pk, sig)) in block
@@ -416,8 +419,9 @@ impl<T: Trait> Module<T> {
                 .map(|sig| (sig.public_key.clone(), utils::iroha_sig_to_substrate_sig::<T>(sig)))
             {
                 debug::debug!("block signer: {:?}", iroha_pk);
-                if !expected_peers.remove(&iroha_pk) {
-                    return Err(<Error<T>>::InvalidBlockSignature);
+                match expected_peers.iter().position(|x| *x == iroha_pk) {
+                    Some(n) => { expected_peers.remove(n); } ,
+                    None => return Err(<Error<T>>::InvalidBlockSignature),
                 }
                 let block_hash = T::Hashing::hash(&block.header.encode());
                 if !T::AuthorityId::verify(block_hash.as_ref(), pk, sig) {

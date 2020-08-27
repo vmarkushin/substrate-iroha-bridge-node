@@ -8,11 +8,11 @@ use sp_runtime::{
 
 use async_std::task;
 
-use iroha::{config::Configuration, prelude};
+use iroha::{config::Configuration, prelude, bridge};
 use iroha_client::client::account::by_id;
 use iroha_client::{client::Client, config::Configuration as ClientConfiguration};
 use iroha_client_no_std::prelude as no_std_prelude;
-use iroha_client_no_std::crypto as iroha_crypto;
+use iroha_client_no_std::crypto as iroha_crypto_no_std;
 use parity_scale_codec::alloc::sync::Arc;
 use parity_scale_codec::Decode;
 use parking_lot::RwLock;
@@ -29,6 +29,13 @@ use sp_core::offchain::Timestamp;
 
 use treasury::AssetKind;
 use frame_support::sp_std::convert::TryFrom;
+use iroha::prelude::{AccountId as IrohaAccountId, Asset, Account, Domain, AssetDefinition, BridgeDefinitionId, BridgeKind, BridgeDefinition, BridgeId, AssetDefinitionId, Register, Mint, AssetId, Add, Instruction};
+use iroha::permission::{Permission, permission_asset_definition_id};
+use iroha_crypto::multihash::{Multihash, DigestFunction};
+use sp_std::collections::btree_map::BTreeMap;
+use iroha::bridge::asset::ExternalAsset;
+use iroha_crypto::PrivateKey;
+use iroha::peer::PeerId;
 
 pub type SubstrateAccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
@@ -101,7 +108,10 @@ impl ExtBuilder {
             // pallet_sudo: Some(SudoConfig { key: root_key }),
             iroha_bridge: Some(IrohaBridgeConfig {
                 authorities: endowed_accounts.clone(),
-                iroha_peers: vec![iroha_crypto::PublicKey::try_from(vec![52u8, 45, 84, 67, 137, 84, 47, 252, 35, 59, 237, 44, 144, 70, 71, 206, 243, 67, 8, 115, 247, 189, 204, 26, 181, 226, 232, 81, 123, 12, 81, 120]).unwrap()],
+                iroha_peers: vec![iroha_crypto_no_std::PublicKey::try_from(&iroha_crypto_no_std::Multihash {
+                    payload: vec![52u8, 45, 84, 67, 137, 84, 47, 252, 35, 59, 237, 44, 144, 70, 71, 206, 243, 67, 8, 115, 247, 189, 204, 26, 181, 226, 232, 81, 123, 12, 81, 120],
+                    digest_function: iroha_crypto_no_std::DigestFunction::Ed25519Pub,
+                }).unwrap()],
             }),
         }
         .build_storage()
@@ -248,6 +258,154 @@ fn check_response_assets(response: &prelude::QueryResult, expected_xor_amount: u
     }
 }
 
+async fn init_bridge(iroha_client: &Client) {
+    let domain_name = "global";
+    let bridge_admin_account_id = IrohaAccountId::new("bridge_admin", domain_name);
+    let permission_asset_definition_id = permission_asset_definition_id();
+    let bridge_admin_asset_id = AssetId {
+        definition_id: permission_asset_definition_id,
+        account_id: bridge_admin_account_id.clone(),
+    };
+    let bridge_permissions_asset =
+        Asset::with_permission(bridge_admin_asset_id.clone(), Permission::Anything);
+    let bpk = iroha_crypto::PublicKey::try_from(&Multihash {
+        digest_function: DigestFunction::Ed25519Pub,
+        payload: vec![52, 80, 113, 218, 85, 229, 220, 206, 250, 170, 68, 3, 57, 65, 94, 249, 242, 102,
+                      51, 56, 163, 143, 125, 160, 223, 33, 190, 90, 180, 224, 85, 239]
+    }).unwrap();
+    // let bsk = PrivateKey::try_from(&Multihash {
+    //     digest_function: DigestFunction::Ed25519Pub,
+    //     payload: vec![250, 199, 149, 157, 191, 231, 47, 5, 46, 90, 12, 60, 141, 101, 48, 242, 2, 176, 47,
+    //                   216, 249, 245, 202, 53, 128, 236, 141, 235, 119, 151, 71, 158, 52, 80, 113, 218,
+    //                   85, 229, 220, 206, 250, 170, 68, 3, 57, 65, 94, 249, 242, 102, 51, 56, 163, 143,
+    //                   125, 160, 223, 33, 190, 90, 180, 224, 85, 239, ]
+    // }).unwrap();
+    // println!("pk {:?}", bpk.inner);
+    // println!("sk {:?}", bsk.inner);
+    let mut bridge_admin_account = Account::with_signatory(
+        &bridge_admin_account_id.name,
+        &bridge_admin_account_id.domain_name,
+        bpk.clone(),
+    );
+    bridge_admin_account
+        .assets
+        .insert(bridge_admin_asset_id, bridge_permissions_asset);
+    let register_bridge_admin_account = Register::new(bridge_admin_account, domain_name.to_owned()).into();
+    let peer_id = PeerId::new("", &bpk);
+    let add_bridge_domain = Add::new(Domain::new("bridge".into()), peer_id.clone()).into();
+    /*
+    accounts.insert(bridge_admin_account_id.clone(), bridge_admin_account);
+    let domain = Domain {
+        name: domain_name.into(),
+        accounts,
+        asset_definitions,
+    };     */
+    // let mut domains = BTreeMap::new();
+    {
+        // let bridge_domain_name = "bridge".to_string();
+        /*
+        let mut bridge_asset_definitions = BTreeMap::new();
+        */
+        let asset_definition_ids = [
+            bridge::bridges_asset_definition_id(),
+            bridge::bridge_asset_definition_id(),
+            bridge::bridge_external_assets_asset_definition_id(),
+            bridge::bridge_incoming_external_transactions_asset_definition_id(),
+            bridge::bridge_outgoing_external_transactions_asset_definition_id(),
+        ];
+        // let mut instructions: Vec<Instruction> = asset_definition_ids.into_iter()
+        //     .map(|x| Register::new(x, domain_name.to_owned()).into());
+        /*
+
+for asset_definition_id in &asset_definition_ids {
+    bridge_asset_definitions.insert(
+        asset_definition_id.clone(),
+        AssetDefinition::new(asset_definition_id.clone()),
+    );
+}
+let bridge_domain = Domain {
+    name: bridge_domain_name.clone(),
+    accounts: BTreeMap::new(),
+    asset_definitions: bridge_asset_definitions,
+};
+// domains.insert(domain_name, domain);
+domains.insert(bridge_domain_name, bridge_domain);
+*/
+        ///
+        let bridge_domain_name = "polkadot".to_string();
+        let bridge_def_id = BridgeDefinitionId {
+            name: bridge_domain_name.clone(),
+        };
+        let bridge_def = BridgeDefinition {
+            id: bridge_def_id.clone(),
+            kind: BridgeKind::IClaim,
+            owner_account_id: bridge_admin_account_id.clone(),
+        };
+        let ext_asset = ExternalAsset {
+            bridge_id: BridgeId::new(&bridge_def_id.name),
+            name: "DOT".to_string(),
+            id: "DOT".to_string(),
+            decimals: 10,
+        };
+        let register_bridge = bridge::isi::register_bridge(peer_id, &bridge_def);
+        let register_client = bridge::isi::add_client(&bridge_def_id, iroha_client.key_pair.public_key.clone());
+        let dot_asset_def = AssetDefinition::new(AssetDefinitionId {
+            name: "DOT".to_string(),
+            domain_name: bridge_domain_name.clone(),
+        });
+        let register_dot_asset =
+            Register::new(dot_asset_def, bridge_domain_name.clone()).into();
+        let xor_asset_def = AssetDefinition::new(AssetDefinitionId {
+            name: "XOR".to_string(),
+            domain_name: "global".into(),
+        });
+        let register_xor_asset = Register::new(xor_asset_def.clone(), domain_name.to_owned()).into();
+        let register_ext_asset = bridge::isi::register_external_asset(&ext_asset);
+        let account_id = IrohaAccountId::new("root", domain_name);
+        let mint_xor = Mint::new(
+            100u32,
+            AssetId::new(xor_asset_def.id.clone(), account_id.clone()),
+        )
+            .into();
+        // let kp = KeyPair {
+        //     public_key: pk,
+        //     private_key: sk,
+        // };
+
+        let instructions = vec![
+            register_bridge_admin_account,
+            add_bridge_domain,
+            Register {
+                object: AssetDefinition::new(bridge::bridges_asset_definition_id()),
+                destination_id: "bridge".to_owned(),
+            }.into(),
+            Register {
+                object: AssetDefinition::new(bridge::bridge_asset_definition_id()),
+                destination_id: "bridge".to_owned(),
+            }.into(),
+            Register {
+                object: AssetDefinition::new(bridge::bridge_external_assets_asset_definition_id()),
+                destination_id: "bridge".to_owned(),
+            }.into(),
+            Register {
+                object: AssetDefinition::new(bridge::bridge_incoming_external_transactions_asset_definition_id()),
+                destination_id: "bridge".to_owned(),
+            }.into(),
+            Register {
+                object: AssetDefinition::new(bridge::bridge_outgoing_external_transactions_asset_definition_id()),
+                destination_id: "bridge".to_owned(),
+            }.into(),
+            register_xor_asset,
+            register_bridge,
+            register_client,
+            register_dot_asset,
+            register_ext_asset,
+            mint_xor,
+        ];
+        iroha_client.submit_all(instructions).await.unwrap();
+    }
+}
+
 #[async_std::test]
 async fn should_transfer_asset_between_iroha_and_substrate() {
     thread::spawn(create_and_start_iroha);
@@ -256,9 +414,11 @@ async fn should_transfer_asset_between_iroha_and_substrate() {
     let configuration =
         ClientConfiguration::from_path("config.json").expect("Failed to load configuration.");
     let mut iroha_client = Client::new(&configuration);
+    init_bridge(&iroha_client).await;
+    thread::sleep(std::time::Duration::from_secs(5));
 
     let substrate_user_account =
-        AccountId32::decode(&mut &configuration.public_key.inner[..]).unwrap();
+        AccountId32::decode(&mut &configuration.public_key.payload[..]).unwrap();
 
     let bridge_account_id = prelude::AccountId::new("bridge", "polkadot");
     let get_bridge_account = by_id(bridge_account_id.clone());

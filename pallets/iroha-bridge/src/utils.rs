@@ -30,10 +30,15 @@ macro_rules! dbg {
 pub fn substrate_sig_to_iroha_sig<T: Trait>(
     (pk, sig): (T::Public, <T as SigningTypes>::Signature),
 ) -> iroha_crypto::Signature {
-    let public_key = iroha_crypto::PublicKey::try_from(pk.encode()[1..].to_vec()).unwrap();
+    let public_key = iroha_crypto::PublicKey::try_from(
+        &iroha_crypto::Multihash {
+            payload:         pk.encode()[1..].to_vec(),
+            digest_function: iroha_crypto::DigestFunction::Ed25519Pub,
+        }).unwrap();
     let sig_bytes = sig.encode();
-    let mut signature = [0u8; 64];
-    signature.copy_from_slice(&sig_bytes[1..]);
+    let mut signature = sig_bytes[1..].to_vec();
+    // let mut signature = [0u8; 64];
+    // signature.copy_from_slice(&sig_bytes[1..]);
     iroha_crypto::Signature {
         public_key,
         signature,
