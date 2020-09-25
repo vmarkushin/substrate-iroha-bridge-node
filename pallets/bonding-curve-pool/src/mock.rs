@@ -1,6 +1,6 @@
 use crate::{Module, Trait};
 use common::prelude::{AssetId, Balance};
-use common::Amount;
+use common::{Amount, Fixed, SwapAmount, SwapOutcome};
 use currencies::BasicCurrencyAdapter;
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use frame_system as system;
@@ -9,7 +9,7 @@ use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
-    Perbill,
+    DispatchError, Perbill,
 };
 
 pub type AccountId = AccountId32;
@@ -64,7 +64,58 @@ impl system::Trait for Runtime {
     type SystemWeightInfo = ();
 }
 
-impl Trait for Runtime {}
+parameter_types! {
+    pub const GetDefaultFee: u16 = 30;
+    pub const GetDefaultProtocolFee: u16 = 0;
+}
+
+impl dex_manager::Trait for Runtime {
+    type Event = ();
+    type GetDefaultFee = ();
+    type GetDefaultProtocolFee = ();
+}
+
+impl trading_pair::Trait for Runtime {
+    type Event = ();
+    type EnsureDEXOwner = dex_manager::Module<Runtime>;
+}
+
+impl dex_api::Trait for Runtime {
+    type Event = ();
+    type MockLiquiditySource = ();
+}
+
+pub struct MockDEXApi;
+
+impl common::LiquiditySource<DEXId, AccountId, AssetId, Fixed, DispatchError> for MockDEXApi {
+    fn can_exchange(target_id: &u32, input_asset_id: &AssetId, output_asset_id: &AssetId) -> bool {
+        unimplemented!()
+    }
+
+    fn quote(
+        target_id: &u32,
+        input_asset_id: &AssetId,
+        output_asset_id: &AssetId,
+        swap_amount: SwapAmount<Fixed>,
+    ) -> Result<SwapOutcome<Fixed>, DispatchError> {
+        unimplemented!()
+    }
+
+    fn exchange(
+        sender: &AccountId,
+        receiver: &AccountId,
+        target_id: &u32,
+        input_asset_id: &AssetId,
+        output_asset_id: &AssetId,
+        swap_amount: SwapAmount<Fixed>,
+    ) -> Result<SwapOutcome<Fixed>, DispatchError> {
+        unimplemented!()
+    }
+}
+
+impl Trait for Runtime {
+    type DEXApi = MockDEXApi;
+}
 
 impl tokens::Trait for Runtime {
     type Event = ();

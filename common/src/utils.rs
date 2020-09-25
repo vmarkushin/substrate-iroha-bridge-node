@@ -1,11 +1,15 @@
 use crate::{Fixed, LiquiditySourceId};
+use sp_arithmetic::FixedPointNumber;
 use sp_std::vec::Vec;
 
-/// Check if value belongs valid range of basis points, 0..10000 corresponds to 0.01%..100.00%.
+/// Basis points range (0..10000) corresponds to 0.01%..100.00%.
+const BASIS_POINTS_RANGE: u16 = 10000;
+
+/// Check if value belongs valid range of basis points.
 /// Returns true if range is valid, false otherwise.
 pub fn in_basis_points_range<BP: Into<u16>>(value: BP) -> bool {
     match value.into() {
-        0..=10000 => true,
+        0..=BASIS_POINTS_RANGE => true,
         _ => false,
     }
 }
@@ -13,8 +17,11 @@ pub fn in_basis_points_range<BP: Into<u16>>(value: BP) -> bool {
 /// Create fraction as Fixed from BasisPoints value.
 pub fn fixed_from_basis_points<BP: Into<u16>>(value: BP) -> Fixed {
     let value_inner: u16 = value.into();
-    Fixed::from_inner(value_inner as u128 * 100_000_000_000_000)
+    Fixed::from_inner(
+        value_inner as u128 * (<Fixed as FixedPointNumber>::DIV / BASIS_POINTS_RANGE as u128),
+    )
 }
+
 /// Generalized filtration mechanism for listing liquidity sources.
 pub struct LiquiditySourceFilter<DEXId: PartialEq, LiquiditySourceIndex: PartialEq> {
     pub list: Vec<(Option<DEXId>, Option<LiquiditySourceIndex>)>,

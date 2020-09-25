@@ -4,6 +4,7 @@ use sp_arithmetic::FixedU128;
 
 mod balance;
 mod fixed_wrapper;
+pub mod macros;
 pub mod mock;
 mod primitives;
 mod traits;

@@ -24,7 +24,7 @@ pub trait Trait: common::Trait + assets::Trait {
 
 decl_storage! {
     trait Store for Module<T: Trait> as MockLiquiditySourceModule {
-        pub Reserves get(fn price): double_map hasher(blake2_128_concat) T::DEXId, hasher(blake2_128_concat) T::AssetId => (Fixed, Fixed);
+        pub Reserves get(fn reserves): double_map hasher(blake2_128_concat) T::DEXId, hasher(blake2_128_concat) T::AssetId => (Fixed, Fixed);
     }
 
     add_extra_genesis {

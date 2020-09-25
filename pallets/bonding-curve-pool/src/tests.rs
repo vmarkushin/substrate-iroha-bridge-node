@@ -11,7 +11,7 @@ mod tests {
                 Fixed::from(100)
             );
             assert_eq!(
-                BondingCurvePool::buy_tokens_price(XOR, 100_000u32.into())
+                BondingCurvePool::buy_in_tokens_price(XOR, 100_000u32.into())
                     .expect("failed to calculate buy tokens price"),
                 Fixed::from(100_10_000)
             );

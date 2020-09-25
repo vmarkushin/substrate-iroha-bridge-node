@@ -36,11 +36,26 @@ pub enum AssetId {
     DOT = 1,
     KSM = 2,
     USD = 3,
+    VAL = 4,
 }
 
 impl Default for AssetId {
     fn default() -> Self {
         Self::XOR
+    }
+}
+
+/// DEX identifier.
+#[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, PartialOrd, Ord, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash))]
+#[repr(u8)]
+pub enum DEXId {
+    Polkaswap = 0,
+}
+
+impl From<DEXId> for u32 {
+    fn from(dex_id: DEXId) -> Self {
+        dex_id as u32
     }
 }
 

@@ -151,7 +151,7 @@ pub trait Trait: common::Trait + assets::Trait {
     type TechAccountIdPrimitive: Ord
         + Member
         + Parameter
-        + PureOrWrapped<<Self as frame_system::Trait>::AccountId>
+        + PureOrWrapped<AccountIdOf<Self>>
         + Default;
 
     /// The units in which we record amount.
@@ -235,7 +235,7 @@ where
     /// Set storage changes in assets to transfer specific asset from regular `AccountId` into pure `TechAccountId`.
     pub fn set_transfer_in(
         asset: AssetIdOf<T>,
-        source: <T as frame_system::Trait>::AccountId,
+        source: AccountIdOf<T>,
         tech_dest: TechAccountIdOf<T>,
         amount: Balance,
     ) -> DispatchResult {
@@ -257,7 +257,7 @@ where
     pub fn set_transfer_out(
         asset: AssetIdOf<T>,
         tech_source: TechAccountIdOf<T>,
-        dest: <T as frame_system::Trait>::AccountId,
+        dest: AccountIdOf<T>,
         amount: Balance,
     ) -> DispatchResult {
         ensure!(

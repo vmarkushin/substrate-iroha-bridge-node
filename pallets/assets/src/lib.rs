@@ -49,7 +49,8 @@ pub trait Trait: frame_system::Trait + permissions::Trait + tokens::Trait {
         + MaybeSerializeDeserialize
         + Ord
         + Default
-        + Into<CurrencyIdOf<Self>>;
+        + Into<CurrencyIdOf<Self>>
+        + From<common::AssetId>;
 
     /// The base asset as the core asset in all trading pairs
     type GetBaseAssetId: Get<Self::AssetId>;

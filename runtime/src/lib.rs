@@ -269,7 +269,9 @@ impl dex_manager::Trait for Runtime {
     type GetDefaultProtocolFee = GetDefaultProtocolFee;
 }
 
-impl bonding_curve_pool::Trait for Runtime {}
+impl bonding_curve_pool::Trait for Runtime {
+    type DEXApi = ();
+}
 
 type TechAccountIdPrimitive = common::TechAccountId<AccountId, AssetId, DEXId>;
 type TechAssetId = common::TechAssetId<AssetId, DEXId>;
