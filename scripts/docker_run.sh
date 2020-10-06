@@ -2,9 +2,11 @@
 
 set -e
 
-echo "*** Start Substrate node template ***"
+echo "*** Start Substrate Iroha Bridge ***"
 
-cd $(dirname ${BASH_SOURCE[0]})/..
+cd $(dirname ${BASH_SOURCE[0]})/../../..
 
-docker-compose down --remove-orphans
-docker-compose run --rm --service-ports dev $@
+mkdir .local || true
+docker-compose -f docker-compose-substrate.yml down --remove-orphans
+docker-compose -f docker-compose-substrate.yml build dev-manual
+docker-compose -f docker-compose-substrate.yml run --rm --service-ports dev-manual $@
